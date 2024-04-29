@@ -10,8 +10,8 @@ class ImageEditor:
     def __init__(self, master):
         
         self.master = master
-        self.master.title("GEMINI Image Editor")
-        self.master.iconbitmap('favicon.ico') 
+        self.master.title("Image Editor")
+        # self.master.iconbitmap('favicon.ico') 
         self.current_index = 0
         self.start_x = 0
         self.start_y = 0
@@ -65,8 +65,11 @@ class ImageEditor:
 
     def load_folder(self):
         folder_path = filedialog.askdirectory()
+        self.folder_path = folder_path
+        os.makedirs(f'{self.folder_path}/annotated', exist_ok=True)
         if folder_path:
             self.images = [os.path.join(folder_path, file) for file in os.listdir(folder_path) if file.endswith(('png', 'jpg', 'jpeg'))]
+            print(self.images)
             self.current_index = 0
             # self.show_image()
             image_path = self.images[self.current_index]
@@ -84,6 +87,9 @@ class ImageEditor:
     
     def reset_image(self):
         self.zoom_level = 1.0
+        image_path = self.images[self.current_index]
+        self.img = cv2.imread(image_path)
+        self.show_image()
         self.show_image()
 
     def prev_image(self):
@@ -138,7 +144,7 @@ class ImageEditor:
                 if not self.data['Sr. No.'].eq(self.current_index).any():
                     self.data = self.data.append({'Sr. No.':self.current_index,'Image Name': os.path.basename(self.images[self.current_index]),'angle':'None'}, ignore_index=True)
             self.tree.delete(*self.tree.get_children())
-            print(os.path.basename(self.images[self.current_index]))
+            # print(os.path.basename(self.images[self.current_index]))
             for index, row in self.data.iterrows():
                 self.tree.insert("", "end", values=[row['Sr. No.'],row['Image Name'],row['angle']])
 
@@ -162,9 +168,11 @@ class ImageEditor:
         # global start_x, start_y, line_counter
         if self.start_x is not None and self.start_y is not None and self.line_counter < 2:
             x, y = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
-            self.canvas.create_line(self.start_x, self.start_y, x, y,fill = 'red')
+            print('hi',self.start_x, self.start_y)
+            # self.canvas.create_line(self.start_x, self.start_y, x, y,fill = 'red')
+            cv2.line(self.img, (int(self.start_x*(1/self.zoom_level)), int(self.start_y*(1/self.zoom_level))),(int(x*(1/self.zoom_level)),int(y*(1/self.zoom_level))), (255,0,0), 3)
             # print(self.line_counter)
-            self.slopes[self.line_counter] = (y -self.start_y)/(x -self.start_x)
+            self.slopes[self.line_counter] = (y -self.start_y)/(x -self.start_x+.0000000001)
             # add slope function _________________________________________________________________________
             
             self.start_x, self.start_y = None, None
@@ -173,16 +181,20 @@ class ImageEditor:
                 m1 = self.slopes[0]
                 m2 = self.slopes[1]
                 angle = math.degrees(math.atan(abs((m2 - m1) / (1 + m1 * m2))))
-                print(angle,m1,m2)
+                # print(angle,m1,m2)
                 self.data.at[self.current_index, 'angle'] = angle
                 self.canvas.create_text(10, 100, anchor='nw', text=str(angle), fill="red")
                 self.label.config(text = f'Angle: {angle}')
+                # print(f'{self.folder_path}/annotated/{os.path.basename(self.images[self.current_index])}')
+                cv2.putText(self.img, f'Angle: {angle}', (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 3)
+                cv2.imwrite(f'{self.folder_path}/annotated/{os.path.basename(self.images[self.current_index])}',self.img)
                 # self.slopes[self.line_counter] == (y -self.start_y)/(x -self.start_x)
             if self.line_counter >= 2:
                 # draw_button.config(state=tk.DISABLED)
                 self.canvas.unbind("<Button-1>")
                 self.canvas.unbind("<B1-Motion>")
                 self.canvas.unbind("<ButtonRelease-1>")
+            self.show_image()
 
 
     def on_button_press(self, event):

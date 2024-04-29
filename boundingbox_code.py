@@ -6,17 +6,25 @@ import pandas as pd
 from tkinter import ttk,filedialog
 from PIL import Image, ImageTk
 
+from rect import RectangleWithMovablePoints, MovablePoint
+
 class ImageEditor:
     def __init__(self, master):
         
         self.master = master
+        # self.RectangleWithMovablePoints = RectangleWithMovablePoints(self)
+        # self.MovablePoint = MovablePoint(self)
+
         self.master.title("Pratyksh Image Editor")
         # self.master.iconbitmap('favicon.ico') 
         self.current_index = 0
+        self.point1 = [0,0]
+        self.point2 = [0,0]
         self.start_x = 0
         self.start_y = 0
         self.temp_line = 0
         self.line_counter = 0
+        self.point_counter = 0
         self.images = []
         self.slopes = [0,0]
         self.zoom_level = 1.0  # Initial zoom level
@@ -37,16 +45,19 @@ class ImageEditor:
         self.pan_button.grid(row=0, column=4)
         draw_button = tk.Button(self.button_frame, text="draw", command=self.draw_but)
         draw_button.grid(row=0, column=5)
+        draw_rect = tk.Button(self.button_frame, text="rectangle", command=self.rect)
+        draw_rect.grid(row=0, column=5)
         download_button = tk.Button(self.button_frame, text="Download JSON", command=self.download_json)
         download_button.grid(row=0, column=6)
-        # self.magnify_button = tk.Button(master, text="Magnify", command=self.activate_magnify)
-        # self.magnify_button.pack(side="left")
         self.canvas = tk.Canvas(master, cursor="arrow")
         self.canvas.config(width = 400, height = 400)
         self.canvas.pack(fill="both", expand=True)
 
-        self.label = tk.Label(self.button_frame, text="Angle: None")
+        self.label = tk.Label(self.button_frame, text="x1,y1: None")
         self.label.grid(row=0, column=7)
+
+        self.label1 = tk.Label(self.button_frame, text="x2,y2: None")
+        self.label1.grid(row=0, column=8)
 
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
         self.canvas.bind("<B1-Motion>", self.on_move_press)
@@ -83,6 +94,34 @@ class ImageEditor:
             image_path = self.images[self.current_index]
             self.img = cv2.imread(image_path)
             self.show_image()
+
+    def rect(self):
+        self.canvas.bind("<ButtonRelease-1>", self.makepoint)#"<ButtonRelease-1>"
+
+
+
+    def makepoint(self, event):
+        print(self.label.cget("text"))
+        print(self.point_counter)
+        if self.point_counter == 0:
+            self.point_counter += 1
+            self.point1 = [self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)]
+            print(self.point1, self.point_counter)
+            self.point1 = MovablePoint(self.canvas,self.point1[0], self.point1[1],self.label)
+        elif self.point_counter == 1:
+            self.point_counter += 1
+            self.point2 = [self.canvas.canvasx(event.x), self.canvas.canvasy(event.y),self.label]
+            print(self.point2, self.point_counter)
+            self.point2 = MovablePoint(self.canvas,self.point2[0], self.point2[1], self.label1,color = 'blue')
+            rectangle = RectangleWithMovablePoints(self.canvas, self.point1, self.point2)
+            rectangle.draw_rectangle()
+            
+            # self.label1.config(text = f'x2, y2: {self.point2.cord()}')
+        else:
+            self.point_counter = 0
+            # print(self.point1.prev_x,self.point1.prev_y)  works
+            self.canvas.unbind("<ButtonRelease-1>")
+            
     
     def reset_image(self):
         self.zoom_level = 1.0
@@ -100,11 +139,9 @@ class ImageEditor:
             self.show_image()
     
     def download_json(self):
-        # Prompt user for file save location
         filename = filedialog.asksaveasfilename(defaultextension=".json", filetypes=(("JSON files", "*.json"), ("All files", "*.*")))
 
         if filename:
-            # Save DataFrame as JSON
             self.data.to_json(filename, orient='records')
     def pan(self):
         self.canvas.bind("<ButtonPress-1>", self.on_button_press)
